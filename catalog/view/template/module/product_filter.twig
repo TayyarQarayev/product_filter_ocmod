@@ -9,52 +9,83 @@
     <div id="message" class="alert alert-warning d-none"></div> <!-- Xəbərdarlıq mesajı -->
     <ul id="productList" class="list-group mt-3"></ul>
 </div>
+</br>
 
 <script>
-document.getElementById('filterButton').addEventListener('click', function() {
+document.getElementById('filterButton').addEventListener('click', filterProducts);
+document.getElementById('productFilter').addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        filterProducts();
+    }
+});
+
+function filterProducts() {
     let filterInput = document.getElementById('productFilter');
     let filterName = filterInput.value.trim();
     let messageDiv = document.getElementById('message');
     let productList = document.getElementById('productList');
+
+    messageDiv.classList.add("d-none");
+    messageDiv.textContent = "";
 
     if (filterName === "") {
         messageDiv.textContent = "Please, enter product name!";
         messageDiv.classList.remove("d-none");
         productList.innerHTML = "";
         return;
-    } else {
-        messageDiv.classList.add("d-none");
     }
 
     let xhr = new XMLHttpRequest();
-    xhr.open("POST", "index.php?route=extension/module/product_filter", true);
+    xhr.open("POST", "index.php?route=extension/product_filter/module/product_filter", true);
     xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
     xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            let data = JSON.parse(xhr.responseText);
-            productList.innerHTML = '';
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    let data = JSON.parse(xhr.responseText);
 
-            if (data.length === 0) {
-                let li = document.createElement('li');
-                li.textContent = "Uyğun məhsul tapılmadı!";
-                li.classList.add('list-group-item', 'text-danger');
-                productList.appendChild(li);
-                return;
+                    if (!Array.isArray(data)) {
+                        throw new Error("Invalid JSON response");
+                    }
+
+                    productList.innerHTML = '';
+
+                    if (data.length === 0) {
+                        let li = document.createElement('li');
+                        li.textContent = "Is not Product!";
+                        li.classList.add('list-group-item', 'text-danger');
+                        productList.appendChild(li);
+                        return;
+                    }
+                    data.forEach(product => {
+                        let li = document.createElement('li');
+                        li.classList.add('list-group-item');
+
+                        let a = document.createElement('a');
+                        a.href = product.href;
+                        a.textContent = product.name;
+
+                        li.appendChild(a);
+                        productList.appendChild(li);
+                    });
+
+                } catch (error) {
+                    console.error("JSON Parse Error:", error);
+                    messageDiv.textContent = "Server Error!";
+                    messageDiv.classList.remove("d-none");
+                }
+            } else {
+                messageDiv.textContent = "Error. Server answer: " + xhr.status;
+                messageDiv.classList.remove("d-none");
             }
-
-            data.forEach(product => {
-                let li = document.createElement('li');
-                li.classList.add('list-group-item');
-
-                let a = document.createElement('a');
-                a.href = product.href;
-                a.textContent = product.name;
-
-                li.appendChild(a);
-                productList.appendChild(li);
-            });
         }
     };
-    xhr.send("filter_name=" + encodeURIComponent(filterName));
-});
+
+    let params = "filter_name=" + encodeURIComponent(filterName) + "&user_token=" + encodeURIComponent("{{ user_token }}");
+    xhr.send(params);
+
+    filterInput.value = "";
+}
 </script>
+
